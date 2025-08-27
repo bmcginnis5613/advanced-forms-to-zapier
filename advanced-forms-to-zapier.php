@@ -7,11 +7,6 @@ Author URI: https://firsttracksmarketing.com/
 Version: 1.0.0
 */
 
-// TODO LIST
-// 1. It is probably best to refactor at some point to use a drop down for the form list incase there are lots of forms.
-// Also make it so you can assoicate different webhooks to forms in the event you want the data for a form going
-// to a different webhook. Currently we don't need these features, but one way to improve the plugin.
-
 // Hook into Advanced Forms submission
 add_action('af/form/submission', function( $form, $fields, $entry_id ) {
     // Get selected forms from settings
@@ -239,4 +234,5 @@ function af_zapier_settings_page() {
         }
     </style>
     <?php
+
 }

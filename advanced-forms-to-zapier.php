@@ -4,7 +4,7 @@ Plugin Name: Advanced Forms to Zapier
 Description: Sends Advanced Form for ACF submissions to a Zapier Webhook.
 Author: FirstTracks Marketing
 Author URI: https://firsttracksmarketing.com/
-Version: 1.0.0
+Version: 1.1.0
 */
 
 // Hook into Advanced Forms submission
@@ -44,13 +44,34 @@ add_action('af/form/submission', function( $form, $fields, $entry_id ) {
     $data['_form_id']    = $form['post_id'] ?? '';
    
     // Send to Zapier
-    wp_remote_post( $zapier_url, [
+    $response = wp_remote_post( $zapier_url, [
         'body'      => json_encode($data),
         'headers'   => [
             'Content-Type' => 'application/json',
         ],
         'timeout'   => 15,
     ]);
+
+    // Error handling
+    $response_code = wp_remote_retrieve_response_code($response);
+    $response_body = wp_remote_retrieve_body($response);
+
+    // First check if we recieve a valid HTTP response
+    if ($response_code != 200) {
+        af_zapier_send_error_email($form_id, "HTTP Error: Response code {$response_code}");
+        return;
+    }
+
+    // Then check if the webhook reports success in the response body
+    $response_data = json_decode($response_body, true);
+
+    if (!isset($response_data['status']) || $response_data['status'] !== 'success') {
+        $error_message = isset($response_data['status'])
+            ? "Webhook failed with status: {$response_data['status']}"
+            : "Webhook response missing status field";
+        af_zapier_send_error_email($form_id, $error_message);
+        return;
+    }
 }, 10, 3);
 
 // Check if Advanced Forms is installed on plugin activation
@@ -104,6 +125,20 @@ function af_zapier_get_available_forms() {
     }
     
     return $forms;
+}
+
+// Function to send email with error details
+function af_zapier_send_error_email($form_id, $error_message) {
+    $admin_email = get_option('admin_email');
+    $domain = parse_url(home_url(), PHP_URL_HOST);
+   
+    $subject = "Error: Advanced Forms to Zapier";
+    $message = "<p>There was an error in sending Advanced Forms for ACF data to Zapier on the site: {$domain}</p>";
+    $message .= "<p><strong>Form ID:</strong> {$form_id}<br>";
+    $message .= "<strong>Error:</strong> {$error_message}</p>";
+   
+    $headers = array('Content-Type: text/html; charset=UTF-8');
+    wp_mail($admin_email, $subject, $message, $headers);
 }
 
 // Settings page output
